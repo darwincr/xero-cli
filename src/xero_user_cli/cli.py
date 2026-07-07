@@ -354,9 +354,30 @@ def build_parser() -> argparse.ArgumentParser:
     session_sub.add_parser("clear", parents=[common], help="Delete the local browser profile for a session")
     session_sub.add_parser("stop", parents=[common], help="Stop the background browser worker without deleting the profile")
 
-    p_login = sub.add_parser("login", parents=[common], help="Log in or verify the current Xero session")
-    p_login.add_argument("--interactive", action="store_true", help="Open Xero and wait while you complete login manually, including Trust this device")
-    p_login.add_argument("--manual-timeout", type=int, default=120, help="Seconds to wait for MFA/manual verification (default: 120)")
+    p_login = sub.add_parser(
+        "login",
+        parents=[common],
+        help="Log in or verify the current Xero session",
+        description=(
+            "Log in or verify the current Xero session.\n\n"
+            "Primary (default): `xero-cli login --json` fills credentials automatically "
+            "and returns `mfa_required` if MFA is needed.\n\n"
+            "Manual fallback: `xero-cli login --interactive --manual-timeout SECS` "
+            "only when the automated flow fails."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_login.add_argument(
+        "--interactive",
+        action="store_true",
+        help="Manual fallback: complete login manually, including Trust this device",
+    )
+    p_login.add_argument(
+        "--manual-timeout",
+        type=int,
+        default=120,
+        help="Seconds to wait for MFA/manual verification (default: 120)",
+    )
 
     p_screenshot = sub.add_parser("screenshot", parents=[common], help="Save a screenshot of the current browser page")
     p_screenshot.add_argument("--output", type=Path, default=Path("screenshot.png"), help="Screenshot file path (default: screenshot.png)")
