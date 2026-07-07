@@ -62,12 +62,15 @@ def create_expense(session, form: ExpenseForm) -> dict:
     goto_domcontentloaded(page, XERO_CREATE_EXPENSE_URL)
     page.wait_for_timeout(1500)
 
-    _fill_expense_fields(page, form)
+    field_state = _fill_expense_fields(page, form)
+    if field_state.get("spent_at", {}).get("status") in {"ambiguous", "unresolved"}:
+        return {"ok": False, "submitted": False, "needs_spent_at_selection": True, "spent_at": field_state, "url": page.url, "field_values": _field_values(page)}
     _upload_receipt(page, form.receipt_file)
     if form.submit:
         _click_submit_expense(page)
         page.wait_for_timeout(1500)
-    return {"ok": True, "submitted": form.submit, "url": page.url, "field_values": _field_values(page), "summary": current_page_summary(session)}
+        _raise_if_submit_blocked(page)
+    return {"ok": True, "submitted": form.submit, "url": page.url, "field_values": _field_values(page), "field_state": field_state, "summary": current_page_summary(session)}
 
 
 def create_mileage(session, form: ExpenseForm) -> dict:
@@ -82,6 +85,7 @@ def create_mileage(session, form: ExpenseForm) -> dict:
     if form.submit:
         _click_submit_expense(page)
         page.wait_for_timeout(1500)
+        _raise_if_submit_blocked(page)
     return {"ok": True, "submitted": form.submit, "url": page.url, "field_values": _field_values(page), "summary": current_page_summary(session)}
 
 
@@ -234,7 +238,7 @@ def _field_values(page) -> dict:
     selectors = {
         "description": "#description-input",
         "amount": "#expense-detail-subtotal",
-        "spent_at": 'input[placeholder="Where was the money spent?"]',
+        "spent_at": '#expense-detail-vendor-input, input[placeholder="Where was the money spent?"], input[placeholder="Select contact"]',
         "distance": "#expense-detail-distance-input",
         "rate": "#distance-rate-input",
         "account": 'input[placeholder="Select account"]',
@@ -345,7 +349,12 @@ def _fill_shared_expense_fields(page, form: ExpenseForm) -> None:
         _fill_date(page, form.payment_due_date, due=True)
 
 
-def _fill_expense_fields(page, form: ExpenseForm) -> None:
+def _fill_expense_fields(page, form: ExpenseForm) -> dict:
+    state: dict = {}
+    if form.merchant:
+        state["spent_at"] = _select_or_create_spent_at(page, form.merchant)
+        if state["spent_at"].get("status") in {"ambiguous", "unresolved"}:
+            return state
     _fill_shared_expense_fields(page, form)
     if form.currency:
         _select_currency(page, form.currency)
@@ -356,15 +365,9 @@ def _fill_expense_fields(page, form: ExpenseForm) -> None:
             ["purchase amount", "amount", "total", "value"],
             form.amount,
         )
-    if form.merchant:
-        _fill_targeted_or_by_label(
-            page,
-            [lambda p: p.locator('input[placeholder="Where was the money spent?"]')],
-            ["spent at", "merchant", "supplier", "paid to", "vendor"],
-            form.merchant,
-        )
     if form.tax_rate:
         _select_tax_rate(page, form.tax_rate)
+    return state
 
 
 def _fill_mileage_fields(page, form: ExpenseForm) -> None:
@@ -599,6 +602,90 @@ def _fill_targeted_or_by_label(page, locators, labels: list[str], value: str) ->
     return _fill_by_label(page, labels, value, required=False)
 
 
+def _select_or_create_spent_at(page, value: str) -> dict:
+    field = first_visible(
+        page,
+        [
+            lambda p: p.locator("#expense-detail-vendor-input"),
+            lambda p: p.locator('input[placeholder="Select contact"]'),
+            lambda p: p.locator('input[placeholder="Where was the money spent?"]'),
+            lambda p: p.get_by_role("textbox", name=re.compile("spent at|select contact", re.I)),
+        ],
+        timeout_ms=2000,
+    )
+    if field is None:
+        raise ElementNotFoundError("Could not find Spent at field")
+
+    human_fill(field, value)
+    page.wait_for_timeout(1200)
+    options = _visible_spent_at_options(page)
+    contact_options = [option for option in options if not option.get("create")]
+    create_options = [option for option in options if option.get("create")]
+
+    exact = [option for option in contact_options if option["text"].casefold() == value.casefold()]
+    if len(exact) == 1:
+        exact[0]["locator"].click()
+        page.wait_for_timeout(600)
+        return _spent_at_result(page, "selected", exact[0]["text"], options)
+
+    if len(contact_options) == 1:
+        contact_options[0]["locator"].click()
+        page.wait_for_timeout(600)
+        return _spent_at_result(page, "selected", contact_options[0]["text"], options)
+
+    if len(contact_options) > 1:
+        return {"status": "ambiguous", "input": value, "options": _option_texts(contact_options), "create_options": _option_texts(create_options)}
+
+    if create_options:
+        create_options[0]["locator"].click()
+        page.wait_for_timeout(800)
+        return _spent_at_result(page, "created", value, options)
+
+    page.keyboard.press("Enter")
+    page.wait_for_timeout(800)
+    return _spent_at_result(page, "created", value, [])
+
+
+def _spent_at_result(page, status: str, value: str, options: list[dict]) -> dict:
+    selected = _field_values(page).get("spent_at", "").strip()
+    if not selected:
+        return {"status": "unresolved", "input": value, "options": _option_texts(options)}
+    return {"status": status, "value": selected, "options": _option_texts(options)}
+
+
+def _visible_spent_at_options(page) -> list[dict]:
+    option_locators = [
+        lambda p: p.get_by_role("option"),
+        lambda p: p.locator('.xui-pickitem--body, [role="listbox"] [role="button"], [data-automationid*="dropdown" i] [role="button"]'),
+        lambda p: p.locator('[role="menu"] [role="menuitem"], [role="menu"] [role="button"]'),
+    ]
+    seen: set[str] = set()
+    options: list[dict] = []
+    for factory in option_locators:
+        locators = factory(page)
+        try:
+            count = min(locators.count(), 20)
+        except PlaywrightError:
+            continue
+        for idx in range(count):
+            locator = locators.nth(idx)
+            try:
+                if not locator.is_visible(timeout=200):
+                    continue
+            except PlaywrightError:
+                continue
+            text = visible_text(locator)
+            if not text or text in seen:
+                continue
+            seen.add(text)
+            options.append({"text": text, "create": bool(re.search(r"add|create|new contact", text, re.I)), "locator": locator})
+    return options
+
+
+def _option_texts(options: list[dict]) -> list[str]:
+    return [option["text"] for option in options]
+
+
 def _select_or_fill(page, labels: list[str], value: str) -> bool:
     if _fill_by_label(page, labels, value, required=False):
         page.keyboard.press("ArrowDown")
@@ -645,16 +732,61 @@ def _fill_date(page, value: str, *, due: bool = False) -> bool:
     button.click()
     page.wait_for_timeout(300)
     month_delta = (target_date.year - current_date.year) * 12 + target_date.month - current_date.month
-    arrows = page.locator(".xui-datepicker--arrow-icon")
+    arrows = _date_picker_arrows(page)
+    if arrows is None:
+        return _fill_by_label(page, ["date", "spent on", "travelled on"], value, required=False)
     arrow_idx = 1 if month_delta > 0 else 0
     for _ in range(abs(month_delta)):
         arrows.nth(arrow_idx).click()
         page.wait_for_timeout(200)
 
-    day = page.locator(f'time[datetime="{value}"]').locator("..").first
-    day.click()
+    day = _enabled_date_cell(page, value)
+    # Xero can render target dates from adjacent months as disabled cells. If
+    # that happens, move one more month toward the target and try again.
+    attempts = 0
+    while day is None and attempts < 2:
+        arrows.nth(arrow_idx).click()
+        page.wait_for_timeout(200)
+        day = _enabled_date_cell(page, value)
+        attempts += 1
+    if day is None:
+        raise ElementNotFoundError(f"Could not select enabled date: {value}")
+    day.click(timeout=5000)
     page.wait_for_timeout(500)
     return True
+
+
+def _date_picker_arrows(page):
+    arrow_factories = [
+        lambda p: p.locator(".xui-datepicker--arrow-icon"),
+        lambda p: p.get_by_role("button", name=re.compile("previous|next", re.I)),
+        lambda p: p.locator('button[aria-label*="Previous" i], button[aria-label*="Next" i]'),
+    ]
+    for factory in arrow_factories:
+        candidate = factory(page)
+        try:
+            if candidate.count() >= 2:
+                return candidate
+        except PlaywrightError:
+            continue
+    return None
+
+
+def _enabled_date_cell(page, value: str):
+    cells = page.locator(f'time[datetime="{value}"]').locator("..")
+    try:
+        count = cells.count()
+    except PlaywrightError:
+        return None
+    for idx in range(count):
+        cell = cells.nth(idx)
+        try:
+            disabled = (cell.get_attribute("aria-disabled", timeout=300) or "").lower() == "true"
+            if not disabled and cell.is_visible(timeout=300):
+                return cell
+        except PlaywrightError:
+            continue
+    return None
 
 
 def _select_currency(page, value: str) -> bool:
@@ -832,3 +964,15 @@ def _click_submit_expense(page) -> None:
         timeout_ms=5000,
     )
     button.click()
+
+
+def _raise_if_submit_blocked(page) -> None:
+    text = visible_text(page.locator("body").first)
+    blocked_messages = [
+        "There was a problem",
+        "Spent at is missing",
+        "Must be greater than zero",
+        "is missing",
+    ]
+    if any(message in text for message in blocked_messages):
+        raise ValidationError("Xero blocked expense submission: " + text[:500])
