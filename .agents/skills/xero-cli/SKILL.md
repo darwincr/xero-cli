@@ -1,16 +1,16 @@
 ---
-name: xero_user
-description: Operate and validate the xero-user Python CLI for browser-driven Xero workflows. Use when an agent needs to authenticate to Xero, inspect session state, manage the browser worker/profile, list/create expenses, create mileage claims, inspect live Xero pages, or discover the current command surface through --help while the CLI is still evolving.
+name: xero-cli
+description: Operate and validate the xero-cli for browser-driven Xero workflows. Use when an agent needs to list/create expenses, create mileage claims, inspect live Xero pages, or discover the current command surface through --help while the CLI is still evolving.
 ---
 
-# xero-user CLI
+# xero-cli
 
-Use this skill when working with the `xero-user` CLI in this repository. The CLI is under active development, so do not rely on hardcoded command examples beyond help discovery. Always inspect the relevant `--help` output before choosing flags for an operation.
+Use this skill when working with the `xero-cli` CLI in this repository. The CLI is under active development, so do not rely on hardcoded command examples beyond help discovery. Always inspect the relevant `--help` output before choosing flags for an operation.
 
 ## Project Context
 
 - Package manager: `uv`
-- CLI entry point: `xero-user`
+- CLI entry point: `xero-cli`
 - Browser automation: Camoufox with Playwright sync API
 - Persistent profile: `~/.xero-user-cli/profiles/<session>`
 - Background browser worker: UNIX socket worker
@@ -50,7 +50,7 @@ Run these help commands to learn the current supported syntax for each functiona
 Use this first when unsure what command groups exist:
 
 ```bash
-uv run xero-user --help
+uv run xero-cli --help
 ```
 
 ### Session Management
@@ -58,7 +58,7 @@ uv run xero-user --help
 Use this for stopping the worker, clearing the profile, or learning current session subcommands:
 
 ```bash
-uv run xero-user session --help
+uv run xero-cli session --help
 ```
 
 If a session subcommand exists and you need its exact flags, inspect that subcommand's help before using it.
@@ -68,8 +68,8 @@ If a session subcommand exists and you need its exact flags, inspect that subcom
 Use these to learn the current login, auth status, and MFA flows:
 
 ```bash
-uv run xero-user login --help
-uv run xero-user auth --help
+uv run xero-cli login --help
+uv run xero-cli auth --help
 ```
 
 After discovering auth subcommands, inspect the specific subcommand help before using it, for example status or MFA continuation.
@@ -79,7 +79,7 @@ After discovering auth subcommands, inspect the specific subcommand help before 
 Use this to discover available expense operations:
 
 ```bash
-uv run xero-user expenses --help
+uv run xero-cli expenses --help
 ```
 
 ### Listing Expenses
@@ -87,7 +87,7 @@ uv run xero-user expenses --help
 Use this before reading visible Xero expenses:
 
 ```bash
-uv run xero-user expenses list --help
+uv run xero-cli expenses list --help
 ```
 
 Prefer JSON output if supported. Listing is read-only.
@@ -97,7 +97,7 @@ Prefer JSON output if supported. Listing is read-only.
 Use this before filling or submitting an expense form:
 
 ```bash
-uv run xero-user expenses create --help
+uv run xero-cli expenses create --help
 ```
 
 Default behavior should be non-destructive. Only use the submit/save/approve flag shown in help when the user explicitly asks to create/submit the real expense.
@@ -107,7 +107,7 @@ Default behavior should be non-destructive. Only use the submit/save/approve fla
 Use this before filling or submitting a mileage claim:
 
 ```bash
-uv run xero-user expenses mileage --help
+uv run xero-cli expenses mileage --help
 ```
 
 Default behavior should be non-destructive. Only use the submit/save/approve flag shown in help when the user explicitly asks to create/submit the real claim.
@@ -117,7 +117,7 @@ Default behavior should be non-destructive. Only use the submit/save/approve fla
 Use this to inspect the current or target Xero page when selectors or fields are uncertain:
 
 ```bash
-uv run xero-user debug --help
+uv run xero-cli debug --help
 ```
 
 After discovering debug subcommands, inspect the specific debug subcommand help before using it.
@@ -150,7 +150,7 @@ These are the validated stable auth flows. For evolving flags, still cross-check
 ### Login (non-interactive primary flow)
 
 ```bash
-uv run xero-user login --json
+uv run xero-cli login --json
 ```
 
 Expected behavior:
@@ -165,7 +165,7 @@ Expected behavior:
 ### MFA continuation
 
 ```bash
-uv run xero-user auth mfa CODE [--no-trust-device] [--timeout SECONDS] --json
+uv run xero-cli auth mfa CODE [--no-trust-device] [--timeout SECONDS] --json
 ```
 
 Expected behavior:
@@ -180,13 +180,13 @@ Expected behavior:
 ### Status inspection (read-only)
 
 ```bash
-uv run xero-user auth status --json
+uv run xero-cli auth status --json
 ```
 
 ### Manual fallback
 
 ```bash
-uv run xero-user login --interactive --manual-timeout 300
+uv run xero-cli login --interactive --manual-timeout 300
 ```
 
 Use only when the automated flow cannot handle a new Xero authentication/checkpoint variant.
@@ -196,14 +196,14 @@ Use only when the automated flow cannot handle a new Xero authentication/checkpo
 Before feature work, verify:
 
 ```bash
-uv run xero-user session clear
-uv run xero-user login --json
+uv run xero-cli session clear
+uv run xero-cli login --json
 ```
 
 If MFA is required:
 
 ```bash
-uv run xero-user auth mfa CODE --json
+uv run xero-cli auth mfa CODE --json
 ```
 
 Expected successful response:

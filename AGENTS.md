@@ -1,4 +1,4 @@
-# AGENTS.md - xero_user
+# AGENTS.md - xero-cli
 
 ## Project Goal
 
@@ -13,7 +13,7 @@ https://go.xero.com/app/!M0777
 ## Current Stack
 
 - Python package managed with `uv`
-- CLI entry point: `xero-user`
+- CLI entry point: `xero-cli`
 - Browser automation: Camoufox + Playwright sync API
 - Persistent browser profile: `~/.xero-user-cli/profiles/<session>`
 - Background browser worker: UNIX socket worker in `src/xero_user_cli/worker.py`
@@ -28,7 +28,7 @@ SECRET_XERO_PASSWORD=...
 
 ## CLI Operations
 
-Specific CLI commands, flags, auth flow details, build/dev commands, and expected JSON responses live in the `xero_user` skill (`.agents/skills/xero_user/SKILL.md`). Refer to that skill for operational command reference; this file intentionally does not duplicate CLI command syntax.
+Specific CLI commands, flags, auth flow details, build/dev commands, and expected JSON responses live in the `xero-cli` skill (`.agents/skills/xero-cli/SKILL.md`). Refer to that skill for operational command reference; this file intentionally does not duplicate CLI command syntax.
 
 
 ## Planned Xero Areas

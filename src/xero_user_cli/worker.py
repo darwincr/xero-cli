@@ -62,7 +62,7 @@ def _send_request(path: Path, payload: dict, *, timeout: float | None = None) ->
                 break
             chunks.append(chunk)
     if not chunks:
-        raise RuntimeError("xero-user worker closed the connection without a response")
+        raise RuntimeError("xero-cli worker closed the connection without a response")
     return json.loads(b"".join(chunks).decode("utf-8"))
 
 
@@ -90,7 +90,7 @@ def _recent_log(name: str, *, max_lines: int = 40) -> str:
 
 
 def _startup_error(name: str, reason: str) -> RuntimeError:
-    message = f"xero-user worker for session {name!r} {reason}"
+    message = f"xero-cli worker for session {name!r} {reason}"
     recent_log = _recent_log(name)
     if recent_log:
         message = f"{message}\nRecent worker log ({_log_path(name)}):\n{recent_log}"

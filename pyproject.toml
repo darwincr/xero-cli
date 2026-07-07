@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "xero-user-cli"
+name = "xero-cli"
 version = "0.1.0"
 description = "CLI for driving Xero through a real Camoufox browser session."
 readme = "README.md"
@@ -17,8 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-xero-user = "xero_user_cli.cli:main"
-xero-user-cli = "xero_user_cli.cli:main"
+xero-cli = "xero_user_cli.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/xero_user_cli"]

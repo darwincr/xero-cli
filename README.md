@@ -1,4 +1,4 @@
-# xero-user-cli
+# xero-cli
 
 CLI for driving Xero through a persistent Camoufox browser profile.
 
@@ -18,24 +18,24 @@ SECRET_XERO_PASSWORD=...
 
 ## Commands
 
-Run `uv run xero-user --help` (or any subcommand's `--help`) for the canonical
+Run `uv run xero-cli --help` (or any subcommand's `--help`) for the canonical
 list. Summary of the current surface:
 
 ### Session management
 
 ```bash
-uv run xero-user session stop      # stop background worker, keep profile
-uv run xero-user session clear     # delete the local browser profile
+uv run xero-cli session stop      # stop background worker, keep profile
+uv run xero-cli session clear     # delete the local browser profile
 ```
 
 ### Authentication
 
 ```bash
-uv run xero-user auth status --json
-uv run xero-user login --json
-uv run xero-user login --interactive --manual-timeout 300
-uv run xero-user auth mfa CODE --json
-uv run xero-user auth mfa CODE --no-trust-device --timeout 60 --json
+uv run xero-cli auth status --json
+uv run xero-cli login --json
+uv run xero-cli login --interactive --manual-timeout 300
+uv run xero-cli auth mfa CODE --json
+uv run xero-cli auth mfa CODE --no-trust-device --timeout 60 --json
 ```
 
 `login` is non-interactive by default. If Xero requires MFA it returns a
@@ -46,15 +46,15 @@ automated flow cannot handle a new Xero authentication/checkpoint variant.
 ### Expenses
 
 ```bash
-uv run xero-user expenses list --json --limit 25
-uv run xero-user expenses create \
+uv run xero-cli expenses list --json --limit 25
+uv run xero-cli expenses create \
   --date 2026-07-04 --description "Lunch" --amount 25.50 --spent-at "Cafe" \
   --currency AUD --category "200 - Sales" --tax-rate "GST on Income" \
   --label "team" --payment-due-date 2026-07-04 --receipt-file ./receipt.pdf --json
-uv run xero-user expenses mileage \
+uv run xero-cli expenses mileage \
   --date 2026-07-04 --description "Client visit" --distance 42 --rate 2.50 \
   --category "449 - Motor Vehicle Expenses" --json
-uv run xero-user expenses edit-detail \
+uv run xero-cli expenses edit-detail \
   --url "https://go.xero.com/app/!M0777/expenses/detail/123" \
   --amount 30.00 --category "Travel" --tax-rate "GST on Income" \
   --item "Parking|Travel|GST on Income|15.00" --json
@@ -78,9 +78,9 @@ be repeated for multiple itemised lines.
 ### Debug
 
 ```bash
-uv run xero-user debug page --json
-uv run xero-user debug page --url "https://go.xero.com/app/!M0777/expenses" --json
-uv run xero-user debug page --click-button "Save" --click-button "OK" --json --limit 80
+uv run xero-cli debug page --json
+uv run xero-cli debug page --url "https://go.xero.com/app/!M0777/expenses" --json
+uv run xero-cli debug page --click-button "Save" --click-button "OK" --json --limit 80
 ```
 
 Emits visible page controls (headings, buttons, inputs, labels, links) and body

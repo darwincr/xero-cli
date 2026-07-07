@@ -242,9 +242,9 @@ def _error_payload(exc: Exception, error_type: str) -> dict:
     payload = {"ok": False, "error": {"type": error_type, "message": str(exc)}}
     if error_type == "mfa_required":
         payload["state"] = "mfa_required"
-        payload["next_command"] = "uv run xero-user auth mfa CODE"
+        payload["next_command"] = "uv run xero-cli auth mfa CODE"
     elif error_type == "interactive_authentication_required":
-        payload["next_command"] = "uv run xero-user login --manual-timeout 300"
+        payload["next_command"] = "uv run xero-cli login --manual-timeout 300"
     return payload
 
 
@@ -346,7 +346,7 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--session", "--name", dest="name", default=os.environ.get("XERO_USER_CLI_SESSION", "default"), help="Session/profile name")
     common.add_argument("--json", action="store_true", help="Emit full JSON instead of a short summary")
 
-    parser = argparse.ArgumentParser(prog="xero-user", description="Drive Xero through Camoufox")
+    parser = argparse.ArgumentParser(prog="xero-cli", description="Drive Xero through Camoufox")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     session_cmd = sub.add_parser("session", help="Manage local browser session state")

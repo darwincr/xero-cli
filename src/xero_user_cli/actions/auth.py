@@ -100,7 +100,7 @@ def ensure_logged_in(session, *, wait_for_manual_seconds: int = 120) -> dict:
         if _looks_authenticated(session, timeout_ms=800):
             return {"ok": True, "authenticated": True, "url": page.url}
         if _mfa_code_input(page, timeout_ms=300) is not None:
-            raise MfaRequired("Xero requires an MFA code. Run `uv run xero-user auth mfa CODE` to continue.")
+            raise MfaRequired("Xero requires an MFA code. Run `uv run xero-cli auth mfa CODE` to continue.")
         if _handle_trust_device_prompt(page):
             time.sleep(1)
             continue
@@ -109,7 +109,7 @@ def ensure_logged_in(session, *, wait_for_manual_seconds: int = 120) -> dict:
         time.sleep(1)
 
     if _mfa_code_input(page, timeout_ms=500) is not None:
-        raise MfaRequired("Xero requires an MFA code. Run `uv run xero-user auth mfa CODE` to continue.")
+        raise MfaRequired("Xero requires an MFA code. Run `uv run xero-cli auth mfa CODE` to continue.")
     if first_visible(page, MFA_LOCATORS, timeout_ms=500) is not None:
         raise InteractiveAuthenticationRequired("Xero is waiting for manual MFA approval or another verification step in the Camoufox window")
     raise AuthenticationError(f"Xero did not reach an authenticated expenses page; current URL: {page.url}")
@@ -135,7 +135,7 @@ def submit_mfa_code(session, code: str, *, trust_device: bool = True, timeout: i
 
     code_input = _mfa_code_input(page, timeout_ms=5000)
     if code_input is None:
-        raise MfaRequired("No MFA code input is visible in the current Xero browser session. Run `uv run xero-user login` first.")
+        raise MfaRequired("No MFA code input is visible in the current Xero browser session. Run `uv run xero-cli login` first.")
 
     human_fill(code_input, code)
     if trust_device:
@@ -150,7 +150,7 @@ def submit_mfa_code(session, code: str, *, trust_device: bool = True, timeout: i
         if _looks_authenticated(session, timeout_ms=800):
             return {"ok": True, "authenticated": True, "url": page.url, "state": "logged_in"}
         if _mfa_code_input(page, timeout_ms=300) is not None and first_visible(page, MFA_LOCATORS, timeout_ms=100) is not None:
-            raise MfaRequired("Xero still requires MFA. The code may be invalid or expired; run `uv run xero-user auth mfa CODE` again.")
+            raise MfaRequired("Xero still requires MFA. The code may be invalid or expired; run `uv run xero-cli auth mfa CODE` again.")
         time.sleep(1)
 
     raise AuthenticationError(f"Xero did not complete MFA within {timeout} seconds; current URL: {page.url}")
