@@ -28,22 +28,74 @@ def browser_headless() -> bool:
     return os.environ.get("XERO_USER_CLI_HEADLESS", "").lower() in {"1", "true", "yes", "on"}
 
 
-def load_dotenv_file(path: Path | None = None) -> dict[str, str]:
-    """Load KEY=VALUE pairs from .env without overriding existing env vars."""
-    env_path = path or Path.cwd() / ".env"
-    if not env_path.exists():
-        return {}
+ENV_FILE_OVERRIDE = "XERO_USER_CLI_ENV_FILE"
 
-    loaded = {}
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        parsed = _parse_dotenv_line(raw_line)
-        if parsed is None:
+
+def dotenv_search_paths() -> list[Path]:
+    """Ordered, de-duplicated .env candidates, highest priority first.
+
+    Resolution is intentionally robust so the CLI finds credentials regardless of
+    which working directory it is launched from (the background worker and the
+    browser-agent both invoke it from directories that may not hold the .env):
+
+    1. ``XERO_USER_CLI_ENV_FILE`` explicit path (absolute location wins).
+    2. The nearest ``.env`` walking up from the current working directory.
+    3. ``~/.xero-user-cli/.env`` — stable across cwds and reachable by the worker.
+    """
+    candidates: list[Path] = []
+
+    explicit = os.environ.get(ENV_FILE_OVERRIDE)
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+
+    try:
+        cwd = Path.cwd()
+    except OSError:
+        cwd = None
+    if cwd is not None:
+        for directory in [cwd, *cwd.parents]:
+            candidates.append(directory / ".env")
+
+    candidates.append(xero_cli_home() / ".env")
+
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for path in candidates:
+        try:
+            resolved = path.expanduser()
+        except (OSError, RuntimeError):
+            resolved = path
+        if resolved in seen:
             continue
-        key, value = parsed
-        if key in os.environ:
+        seen.add(resolved)
+        ordered.append(resolved)
+    return ordered
+
+
+def load_dotenv_file(path: Path | None = None) -> dict[str, str]:
+    """Load KEY=VALUE pairs from .env files without overriding real env vars.
+
+    An existing env var whose value is empty/whitespace-only is treated as unset
+    so injected placeholders (e.g. docker-compose ``${XERO_USER:-}``) can still be
+    filled from a .env file. Values already set to a non-empty string win.
+    """
+    search_paths = [path] if path is not None else dotenv_search_paths()
+
+    loaded: dict[str, str] = {}
+    for env_path in search_paths:
+        if env_path is None or not env_path.exists():
             continue
-        os.environ[key] = value
-        loaded[key] = value
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            parsed = _parse_dotenv_line(raw_line)
+            if parsed is None:
+                continue
+            key, value = parsed
+            if not value:
+                continue
+            if os.environ.get(key, "").strip():
+                continue
+            os.environ[key] = value
+            loaded[key] = value
     return loaded
 
 
@@ -68,8 +120,12 @@ def _parse_dotenv_line(line: str) -> tuple[str, str] | None:
 
 
 def xero_credentials() -> tuple[str, str]:
-    user = os.environ.get("XERO_USER") or os.environ.get("XERO_USERNAME")
-    password = os.environ.get("SECRET_XERO_PASSWORD") or os.environ.get("XERO_PASSWORD")
+    user = (os.environ.get("XERO_USER") or os.environ.get("XERO_USERNAME") or "").strip()
+    password = os.environ.get("SECRET_XERO_PASSWORD") or os.environ.get("XERO_PASSWORD") or ""
     if not user or not password:
-        raise RuntimeError("XERO_USER and SECRET_XERO_PASSWORD must be set in the environment or .env")
+        searched = ", ".join(str(path) for path in dotenv_search_paths())
+        raise RuntimeError(
+            "XERO_USER and SECRET_XERO_PASSWORD must be set in the environment, "
+            f"via {ENV_FILE_OVERRIDE}, or in a .env file. Searched: {searched}"
+        )
     return user, password

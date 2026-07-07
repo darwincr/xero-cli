@@ -17,7 +17,12 @@ https://go.xero.com/app/!M0777
 - Browser automation: Camoufox + Playwright sync API
 - Persistent browser profile: `~/.xero-user-cli/profiles/<session>`
 - Background browser worker: UNIX socket worker in `src/xero_user_cli/worker.py`
-- Environment config: `.env` loaded from the current working directory
+- Environment config: `.env` resolved robustly (does not depend on the launch
+  directory). Resolution order, highest priority first: `XERO_USER_CLI_ENV_FILE`
+  (explicit path), the nearest `.env` walking up from the current working
+  directory, then `~/.xero-user-cli/.env`. Empty/whitespace env vars are treated
+  as unset so injected placeholders (e.g. docker-compose `${XERO_USER:-}`) can be
+  filled from `.env`; real non-empty env vars always win.
 
 Required environment variables:
 

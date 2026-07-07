@@ -14,8 +14,12 @@ Use this skill when working with the `xero-cli` CLI in this repository. The CLI 
 - Browser automation: Camoufox with Playwright sync API
 - Persistent profile: `~/.xero-user-cli/profiles/<session>`
 - Background browser worker: UNIX socket worker
-- Environment config: `.env` in the current working directory
-- Required environment variables are loaded by the CLI from `.env` when present.
+- Environment config: `.env` resolved independent of the launch directory.
+  Priority: `XERO_USER_CLI_ENV_FILE` (explicit path) → nearest `.env` walking up
+  from the current working directory → `~/.xero-user-cli/.env`.
+- Required environment variables (`XERO_USER`, `SECRET_XERO_PASSWORD`) are loaded
+  from those `.env` locations. Empty/whitespace env vars are treated as unset so
+  injected placeholders can be filled from `.env`; real non-empty env vars win.
 
 ## Operating Principles
 

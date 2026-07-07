@@ -8,13 +8,21 @@ CLI for driving Xero through a persistent Camoufox browser profile.
 uv sync
 ```
 
-The CLI reads `.env` from the current directory without overriding existing
-environment variables:
+The CLI loads credentials from `.env` regardless of which directory you launch
+it from. It checks, in priority order: `XERO_USER_CLI_ENV_FILE` (an explicit
+path), the nearest `.env` found walking up from the current directory, then
+`~/.xero-user-cli/.env`. Real (non-empty) environment variables always win;
+empty/whitespace values are treated as unset so a `.env` value can fill them:
 
 ```bash
 XERO_USER=your-xero-email@example.com
 SECRET_XERO_PASSWORD=...
 ```
+
+Tip: for tools that invoke `xero-cli` from an unrelated working directory (for
+example a browser-agent workspace), either set
+`XERO_USER_CLI_ENV_FILE=/abs/path/to/.env` or place the credentials in
+`~/.xero-user-cli/.env` so the background worker always finds them.
 
 ## Commands
 
