@@ -57,7 +57,7 @@ Run these help commands to learn the current supported syntax for each functiona
 uv run xero-cli --help
 ```
 
-Use this first when unsure what command groups exist. Current groups: `session`, `login`, `screenshot`, `auth`, `expenses`, `timesheets`, `sales`, `purchases`, `payroll`, `debug`.
+Use this first when unsure what command groups exist. Current groups: `session`, `login`, `screenshot`, `auth`, `expenses`, `timesheets`, `sales`, `purchases`, `payroll`, `accounting`, `debug`.
 
 ### Session Management
 
@@ -168,6 +168,14 @@ uv run xero-cli payroll employees list --help
 uv run xero-cli payroll leave --help
 uv run xero-cli payroll leave open --help
 uv run xero-cli payroll leave list --help
+```
+
+### Accounting
+
+```bash
+uv run xero-cli accounting --help
+uv run xero-cli accounting accounts --help
+uv run xero-cli accounting accounts list --help
 ```
 
 ### Live Page Debugging

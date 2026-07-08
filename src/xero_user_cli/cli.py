@@ -76,6 +76,9 @@ def _render(command: str, result: dict, as_json: bool) -> None:
     elif command == "area-list":
         items = result.get("items") or []
         _out("(no items found)" if not items else "\n".join(item.get("text", "") for item in items))
+    elif command == "accounting-accounts-list":
+        accounts = result.get("accounts") or []
+        _out("(no accounts found)" if not accounts else "\n".join(_format_account(account) for account in accounts))
     elif command in {"expenses-create", "expenses-mileage-create"}:
         if result.get("needs_spent_at_selection"):
             values = result.get("known_values") or result.get("spent_at", {}).get("options") or []
@@ -96,6 +99,14 @@ def _render(command: str, result: dict, as_json: bool) -> None:
         _out(f"cleared {result.get('name')}")
     else:
         _out("\n".join(f"{key}: {value}" for key, value in result.items()))
+
+
+def _format_account(account: dict) -> str:
+    return " ".join(
+        str(value)
+        for value in [account.get("code"), account.get("name"), account.get("type"), account.get("tax_rate"), account.get("YTD")]
+        if value
+    )
 
 
 def _verb_login(session, args) -> dict:
@@ -290,6 +301,19 @@ def _verb_area_list(session, args) -> dict:
     return list_area(session, area_key=args.area_key, limit=args.limit)
 
 
+def _verb_accounting_accounts_list(session, args) -> dict:
+    from xero_user_cli.actions.accounting import list_accounts
+
+    return list_accounts(
+        session,
+        page_number=args.page,
+        page_size=args.page_size,
+        order_by=args.order_by,
+        direction=args.direction,
+        account_class=args.account_class,
+    )
+
+
 def _verb_sales_invoices_create(session, args) -> dict:
     from xero_user_cli.actions.sales import InvoiceForm, create_invoice
 
@@ -346,6 +370,7 @@ _VERBS = {
     "timesheets-delete": _verb_timesheets_delete,
     "area-open": _verb_area_open,
     "area-list": _verb_area_list,
+    "accounting-accounts-list": _verb_accounting_accounts_list,
     "sales-invoices-create": _verb_sales_invoices_create,
     "debug-page": _verb_debug_page,
     "screenshot": _verb_screenshot,
@@ -671,6 +696,17 @@ def build_parser() -> argparse.ArgumentParser:
         ],
     )
 
+    accounting_cmd = sub.add_parser("accounting", help="Open and inspect Xero accounting areas")
+    accounting_sub = accounting_cmd.add_subparsers(dest="accounting_cmd", required=True)
+    accounts_cmd = accounting_sub.add_parser("accounts", help="Inspect the chart of accounts")
+    accounts_sub = accounts_cmd.add_subparsers(dest="accounts_cmd", required=True)
+    p_accounts_list = accounts_sub.add_parser("list", parents=[common], help="List chart of accounts rows")
+    p_accounts_list.add_argument("--page", type=int, default=1, help="Page number to request (default: 1)")
+    p_accounts_list.add_argument("--page-size", "--limit", dest="page_size", type=int, default=100, help="Rows per page to request (default: 100)")
+    p_accounts_list.add_argument("--order-by", default="Code", help="Column to order by (default: Code)")
+    p_accounts_list.add_argument("--direction", choices=["ASC", "DESC", "asc", "desc"], default="ASC", help="Sort direction (default: ASC)")
+    p_accounts_list.add_argument("--account-class", default="", help="Optional account class filter")
+
     debug_cmd = sub.add_parser("debug", help="Inspect the current Xero page without printing secrets")
     debug_sub = debug_cmd.add_subparsers(dest="debug_cmd", required=True)
     p_debug_page = debug_sub.add_parser("page", parents=[common], help="Emit visible page controls and text as JSON")
@@ -697,6 +733,8 @@ def _parse_args(argv=None):
         args.area_key = f"{args.cmd}-{args.area}"
         specific_verb = f"{args.area_key}-{args.area_action}"
         args.verb = specific_verb if specific_verb in _VERBS else f"area-{args.area_action}"
+    elif args.cmd == "accounting":
+        args.verb = f"accounting-{args.accounting_cmd}-{args.accounts_cmd}"
     elif args.cmd == "debug":
         args.verb = f"debug-{args.debug_cmd}"
     else:
