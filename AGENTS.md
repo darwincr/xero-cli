@@ -4,11 +4,15 @@
 
 Build a Python CLI that drives Xero through a real Camoufox browser session. The CLI should support Xero workflows starting from the expenses funcionalities then expanding to other areas of the Xero web app.
 
-The current organisation path is:
+The default organisation path is:
 
 ```text
 https://go.xero.com/app/!M0777
 ```
+
+Set `XERO_APP_BASE_URL` to target another organisation, such as the Xero demo
+company. Commands should derive organisation-specific URLs from that setting
+rather than hardcoding `!M0777`.
 
 ## Current Stack
 
@@ -47,28 +51,28 @@ non-submit create/edit flows, and only then explicit submit/save commands.
 | Area | URL |
 |---|---|
 | Invoices / Accounts receivable search | `https://go.xero.com/AccountsReceivable/Search.aspx` |
-| Payment links | `https://go.xero.com/app/!M0777/payment-links` |
-| Payment services | `https://go.xero.com/app/!M0777/payment-services` |
-| Quotes | `https://go.xero.com/app/!M0777/quotes-list?` |
-| Products and services | `https://go.xero.com/app/!M0777/products-and-services` |
-| Customers | `https://go.xero.com/app/!M0777/contacts/customers` |
+| Payment links | `$XERO_APP_BASE_URL/payment-links` |
+| Payment services | `$XERO_APP_BASE_URL/payment-services` |
+| Quotes | `$XERO_APP_BASE_URL/quotes-list?` |
+| Products and services | `$XERO_APP_BASE_URL/products-and-services` |
+| Customers | `$XERO_APP_BASE_URL/contacts/customers` |
 
 ### Purchases Tab
 
 | Area | URL |
 |---|---|
-| Bills | `https://go.xero.com/app/!M0777/bills/list/all` |
-| Payments | `https://go.xero.com/app/!M0777/payments` |
-| Purchase orders | `https://go.xero.com/app/!M0777/purchase-orders` |
-| Suppliers | `https://go.xero.com/app/!M0777/contacts/suppliers` |
+| Bills | `$XERO_APP_BASE_URL/bills/list/all` |
+| Payments | `$XERO_APP_BASE_URL/payments` |
+| Purchase orders | `$XERO_APP_BASE_URL/purchase-orders` |
+| Suppliers | `$XERO_APP_BASE_URL/contacts/suppliers` |
 
 ### Payroll Tab
 
 | Area | URL |
 |---|---|
-| Employees | `https://go.xero.com/app/!M0777/payroll/employees` |
-| Leave | `https://payroll.xero.com/Leave?CID=!M0777` |
-| Timesheets | `https://payroll.xero.com/Timesheets?CID=!M0777` |
+| Employees | `$XERO_APP_BASE_URL/payroll/employees` |
+| Leave | `https://payroll.xero.com/Leave?CID=$XERO_ORG` |
+| Timesheets | `https://payroll.xero.com/Timesheets?CID=$XERO_ORG` |
 
 ## Engineering Notes
 

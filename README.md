@@ -17,7 +17,15 @@ empty/whitespace values are treated as unset so a `.env` value can fill them:
 ```bash
 XERO_USER=your-xero-email@example.com
 SECRET_XERO_PASSWORD=...
+XERO_APP_BASE_URL=https://go.xero.com/app/!yj48m
 ```
+
+Set `XERO_APP_BASE_URL` to choose the Xero organisation the CLI opens, for
+example `https://go.xero.com/app/!yj48m` for the demo company. `XERO_ORG=!yj48m`
+is also accepted if you prefer storing only the organisation id. If neither is
+set, the CLI defaults to `https://go.xero.com/app/!M0777`. Stop any running
+worker with `uv run xero-cli session stop` after changing these values so the
+background browser process reloads the environment.
 
 Tip: for tools that invoke `xero-cli` from an unrelated working directory (for
 example a browser-agent workspace), either set
@@ -63,7 +71,7 @@ uv run xero-cli expenses mileage \
   --date 2026-07-04 --description "Client visit" --distance 42 --rate 2.50 \
   --category "449 - Motor Vehicle Expenses" --json
 uv run xero-cli expenses edit-detail \
-  --url "https://go.xero.com/app/!M0777/expenses/detail/123" \
+  --url "$XERO_APP_BASE_URL/expenses/detail/123" \
   --amount 30.00 --category "Travel" --tax-rate "GST on Income" \
   --item "Parking|Travel|GST on Income|15.00" --json
 ```
@@ -83,11 +91,36 @@ Xero computes the total (distance x rate).
 `edit-detail --item` accepts `description|account|tax-rate|amount` lines and may
 be repeated for multiple itemised lines.
 
+### Sales, purchases, and payroll areas
+
+The planned non-expense areas currently support safe navigation and read-only
+listing of visible rows/items:
+
+```bash
+uv run xero-cli sales invoices list --json --limit 25
+uv run xero-cli sales payment-links open --json
+uv run xero-cli sales payment-services list --json
+uv run xero-cli sales quotes list --json
+uv run xero-cli sales products list --json
+uv run xero-cli sales customers list --json
+
+uv run xero-cli purchases bills list --json
+uv run xero-cli purchases payments open --json
+uv run xero-cli purchases purchase-orders list --json
+uv run xero-cli purchases suppliers list --json
+
+uv run xero-cli payroll employees list --json
+uv run xero-cli payroll leave list --json
+```
+
+Each area supports `open` and `list`. Listing is read-only; pages without visible
+records return `items: []` plus a page summary for selector discovery.
+
 ### Debug
 
 ```bash
 uv run xero-cli debug page --json
-uv run xero-cli debug page --url "https://go.xero.com/app/!M0777/expenses" --json
+uv run xero-cli debug page --url "$XERO_APP_BASE_URL/expenses" --json
 uv run xero-cli debug page --click-button "Save" --click-button "OK" --json --limit 80
 ```
 

@@ -32,8 +32,8 @@ SUBMIT_LOCATORS = [
     lambda p: p.locator('input[type="submit"]'),
 ]
 AUTHENTICATED_LOCATORS = [
-    lambda p: p.locator('a[href*="/app/!M0777/"]'),
-    lambda p: p.locator('a[href*="/app/!M0777/expenses"]'),
+    lambda p: p.locator(f'a[href*="{XERO_APP_BASE_URL}/"]'),
+    lambda p: p.locator(f'a[href*="{XERO_APP_BASE_URL}/expenses"]'),
     lambda p: p.locator('[data-automationid*="navigation" i]'),
     lambda p: p.get_by_role("heading", name=re.compile("expenses", re.I)),
     lambda p: p.locator('a[href*="/expenses/detail/create-new"]'),

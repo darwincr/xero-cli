@@ -1,6 +1,6 @@
 ---
 name: xero-cli
-description: Operate and validate the xero-cli for browser-driven Xero workflows. Use when an agent needs to list/create expenses, create mileage claims, inspect live Xero pages, or discover the current command surface through --help while the CLI is still evolving.
+description: Operate and validate the xero-cli for browser-driven Xero workflows across expenses, mileage, timesheets, sales, purchases, payroll, auth, and live page debugging. Use when an agent needs to run any xero-cli command or discover the current command surface through --help while the CLI is still evolving.
 ---
 
 # xero-cli
@@ -25,9 +25,11 @@ Use this skill when working with the `xero-cli` CLI in this repository. The CLI 
 
 - Prefer JSON output for agent workflows when the command supports it.
 - Keep create/edit workflows non-destructive unless the user explicitly asks to submit/save/approve.
-- Do not use submit flags unless the user explicitly requested a real submission.
+- Do not use submit/save/approve flags unless the user explicitly requested a real submission.
 - Do not clear the browser profile unless the user explicitly asks, because it can remove trusted-device/session state.
-- Stopping the worker is safe when needed to reload code; it does not delete the profile.
+- Stopping the worker (`xero-cli session stop`) is safe when needed to reload code; it does not delete the profile and is different from clearing the session.
+- If source code changes are made while a worker is running, stop the worker so the next CLI invocation reloads the updated code.
+- Do not clear the session as a first response to auth issues; preserving trusted-device state is valuable.
 - Never print secrets, passwords, MFA codes, or `.env` contents.
 - Run the relevant `--help` command before using a command area, because flags may change while this CLI is being developed.
 
@@ -47,109 +49,139 @@ uv run python -m compileall src
 
 ## Help Discovery Map
 
-Run these help commands to learn the current supported syntax for each functional area.
+Run these help commands to learn the current supported syntax for each functional area. The CLI is under active development, so always inspect the relevant `--help` output before choosing flags.
 
 ### Top-Level Capability Discovery
-
-Use this first when unsure what command groups exist:
 
 ```bash
 uv run xero-cli --help
 ```
 
-### Session Management
+Use this first when unsure what command groups exist. Current groups: `session`, `login`, `screenshot`, `auth`, `expenses`, `timesheets`, `sales`, `purchases`, `payroll`, `debug`.
 
-Use this for stopping the worker, clearing the profile, or learning current session subcommands:
+### Session Management
 
 ```bash
 uv run xero-cli session --help
+uv run xero-cli session clear --help
+uv run xero-cli session stop --help
 ```
 
-If a session subcommand exists and you need its exact flags, inspect that subcommand's help before using it.
+`clear` deletes the local browser profile for a session; `stop` stops the background browser worker without deleting the profile.
 
 ### Authentication And MFA
-
-Use these to learn the current login, auth status, and MFA flows:
 
 ```bash
 uv run xero-cli login --help
 uv run xero-cli auth --help
+uv run xero-cli auth status --help
+uv run xero-cli auth mfa --help
 ```
 
-After discovering auth subcommands, inspect the specific subcommand help before using it, for example status or MFA continuation.
+### Screenshots
 
-### Expenses Overview
+```bash
+uv run xero-cli screenshot --help
+```
 
-Use this to discover available expense operations:
+### Expenses And Mileage
 
 ```bash
 uv run xero-cli expenses --help
-```
-
-### Listing Expenses
-
-Use this before reading visible Xero expenses:
-
-```bash
 uv run xero-cli expenses list --help
-```
-
-Prefer JSON output if supported. Listing is read-only.
-
-### Creating Expenses
-
-Use this before filling or submitting an expense form:
-
-```bash
 uv run xero-cli expenses create --help
+uv run xero-cli expenses view-detail --help
+uv run xero-cli expenses edit-detail --help
+uv run xero-cli expenses delete-detail --help
+uv run xero-cli expenses mileage --help
+uv run xero-cli expenses mileage create --help
+uv run xero-cli expenses mileage view-detail --help
+uv run xero-cli expenses mileage edit-detail --help
+uv run xero-cli expenses mileage delete-detail --help
 ```
 
-Default behavior should be non-destructive. Only use the submit/save/approve flag shown in help when the user explicitly asks to create/submit the real expense.
-
-### Creating Mileage Claims
-
-Use this before filling or submitting a mileage claim:
+### Timesheets
 
 ```bash
-uv run xero-cli expenses mileage --help
+uv run xero-cli timesheets --help
+uv run xero-cli timesheets open --help
+uv run xero-cli timesheets list --help
+uv run xero-cli timesheets periods --help
+uv run xero-cli timesheets create --help
+uv run xero-cli timesheets view --help
+uv run xero-cli timesheets edit --help
+uv run xero-cli timesheets revert-to-draft --help
+uv run xero-cli timesheets approve --help
+uv run xero-cli timesheets delete --help
 ```
 
-Default behavior should be non-destructive. Only use the submit/save/approve flag shown in help when the user explicitly asks to create/submit the real claim.
+### Sales
+
+```bash
+uv run xero-cli sales --help
+uv run xero-cli sales invoices --help
+uv run xero-cli sales invoices open --help
+uv run xero-cli sales invoices list --help
+uv run xero-cli sales invoices create --help
+uv run xero-cli sales payment-links --help
+uv run xero-cli sales payment-links open --help
+uv run xero-cli sales payment-links list --help
+uv run xero-cli sales payment-services --help
+uv run xero-cli sales payment-services open --help
+uv run xero-cli sales payment-services list --help
+uv run xero-cli sales quotes --help
+uv run xero-cli sales quotes open --help
+uv run xero-cli sales quotes list --help
+uv run xero-cli sales products --help
+uv run xero-cli sales products open --help
+uv run xero-cli sales products list --help
+uv run xero-cli sales customers --help
+uv run xero-cli sales customers open --help
+uv run xero-cli sales customers list --help
+```
+
+### Purchases
+
+```bash
+uv run xero-cli purchases --help
+uv run xero-cli purchases bills --help
+uv run xero-cli purchases bills open --help
+uv run xero-cli purchases bills list --help
+uv run xero-cli purchases payments --help
+uv run xero-cli purchases payments open --help
+uv run xero-cli purchases payments list --help
+uv run xero-cli purchases purchase-orders --help
+uv run xero-cli purchases purchase-orders open --help
+uv run xero-cli purchases purchase-orders list --help
+uv run xero-cli purchases suppliers --help
+uv run xero-cli purchases suppliers open --help
+uv run xero-cli purchases suppliers list --help
+```
+
+### Payroll
+
+```bash
+uv run xero-cli payroll --help
+uv run xero-cli payroll employees --help
+uv run xero-cli payroll employees open --help
+uv run xero-cli payroll employees list --help
+uv run xero-cli payroll leave --help
+uv run xero-cli payroll leave open --help
+uv run xero-cli payroll leave list --help
+```
 
 ### Live Page Debugging
 
-Use this to inspect the current or target Xero page when selectors or fields are uncertain:
-
 ```bash
 uv run xero-cli debug --help
+uv run xero-cli debug page --help
 ```
-
-After discovering debug subcommands, inspect the specific debug subcommand help before using it.
 
 The debug output is intended to expose visible page structure such as headings, buttons, labels, inputs, links, and body text. Do not add logging that exposes credentials, MFA codes, or other secrets.
 
-## Validation Workflow
-
-When validating the CLI after code changes:
-
-1. Run the Python compile check for source changes.
-2. Run top-level and relevant subcommand help checks.
-3. If code was changed and the worker may already be running, stop the worker without clearing the profile so the next CLI invocation imports the updated code.
-4. Run read-only or non-submit smoke checks first.
-5. Only run submit/save/approve workflows with explicit user approval.
-
-Discover the exact commands and flags for steps 2-5 through the relevant `--help` commands above.
-
-## Authentication Workflow Guidance
-
-- Before feature work, verify whether the browser session is authenticated using the current auth/status help flow.
-- If login is required, inspect `login --help` and use the current login workflow.
-- If MFA is required, keep the worker/browser session alive and inspect the current MFA help flow.
-- Do not clear the session as a first response to auth issues; preserving trusted-device state is valuable.
-
 ## Authentication Command Reference
 
-These are the validated stable auth flows. For evolving flags, still cross-check the relevant `--help` output.
+These are the validated stable auth flows. For evolving flags, still cross-check the relevant `--help` output above.
 
 ### Login (non-interactive primary flow)
 
@@ -159,7 +191,8 @@ uv run xero-cli login --json
 
 Expected behavior:
 
-- Opens the neutral Xero homepage URL: `https://go.xero.com/app/!M0777/homepage`
+- Opens the neutral Xero homepage URL for the configured organisation
+  (`$XERO_APP_BASE_URL/homepage`, defaulting to `https://go.xero.com/app/!M0777/homepage`)
 - Fills username from `XERO_USER`
 - Fills password from `SECRET_XERO_PASSWORD`
 - Detects whether the user is authenticated
@@ -216,32 +249,7 @@ Expected successful response:
 {
   "ok": true,
   "authenticated": true,
-  "url": "https://go.xero.com/app/!M0777/homepage",
+  "url": "https://go.xero.com/app/!yj48m/homepage",
   "state": "logged_in"
 }
 ```
-
-## Expense Workflow Guidance
-
-- Start with the expense group help.
-- Use list help for read-only validation.
-- Use create or mileage help before filling forms.
-- Treat all create/mileage operations as dry-runs unless the user explicitly asks to submit.
-- If Xero UI fields do not fill or selectors are uncertain, use debug page help to inspect the live page and then adjust selectors minimally.
-
-## Worker/Profile Guidance
-
-- The CLI usually routes commands through a background worker so the browser can stay open across MFA and subsequent actions.
-- If source code changes are made while a worker is running, stop the worker so the next command reloads code.
-- Stopping the worker is different from clearing the session. Clearing removes browser profile state and should require explicit user intent.
-
-## When To Modify Code
-
-Modify code when:
-
-- Help output shows the command exists but live behavior fails.
-- Xero's UI changed and selectors need hardening.
-- A workflow lacks safe validation or returns unstructured output.
-- The user asks to add a new workflow or field.
-
-Keep changes minimal, selector-specific, and non-destructive by default.

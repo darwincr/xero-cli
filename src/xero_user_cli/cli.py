@@ -71,10 +71,23 @@ def _render(command: str, result: dict, as_json: bool) -> None:
         _out(f"approved: {result.get('approved')} ({result.get('url')})")
     elif command == "timesheets-delete":
         _out(f"deleted: {result.get('deleted')} ({result.get('url')})")
-    elif command in {"expenses-create", "expenses-mileage"}:
-        _out(f"submitted: {result.get('submitted')} ({result.get('url')})")
-    elif command == "expenses-edit-detail":
-        _out(f"saved: {result.get('url')}")
+    elif command == "area-open":
+        _out(f"opened {result.get('label')}: {result.get('url')}")
+    elif command == "area-list":
+        items = result.get("items") or []
+        _out("(no items found)" if not items else "\n".join(item.get("text", "") for item in items))
+    elif command in {"expenses-create", "expenses-mileage-create"}:
+        if result.get("needs_spent_at_selection"):
+            values = result.get("known_values") or result.get("spent_at", {}).get("options") or []
+            _out("ambiguous spent_at: use one of these known values or retry with --force-create-spent-at:\n" + "\n".join(values))
+        else:
+            _out(f"submitted: {result.get('submitted')} ({result.get('url')})")
+    elif command in {"expenses-view-detail", "expenses-mileage-view-detail"}:
+        _out(f"opened: {result.get('url')}")
+    elif command in {"expenses-edit-detail", "expenses-mileage-edit-detail"}:
+        _out(f"saved: {result.get('saved')} ({result.get('url')})")
+    elif command in {"expenses-delete-detail", "expenses-mileage-delete-detail"}:
+        _out(f"deleted: {result.get('deleted')} ({result.get('url')})")
     elif command == "debug-page":
         _out(json.dumps(result, ensure_ascii=False, default=str))
     elif command == "screenshot":
@@ -125,6 +138,7 @@ def _expense_form_from_args(args):
         submit=args.submit,
         amount=getattr(args, "amount", None),
         merchant=getattr(args, "merchant", None),
+        force_create_spent_at=getattr(args, "force_create_spent_at", False),
         currency=getattr(args, "currency", None),
         tax_rate=getattr(args, "tax_rate", None),
         distance=getattr(args, "distance", None),
@@ -138,16 +152,76 @@ def _verb_expenses_create(session, args) -> dict:
     return create_expense(session, _expense_form_from_args(args))
 
 
-def _verb_expenses_mileage(session, args) -> dict:
-    from xero_user_cli.actions.expenses import create_mileage
+def _verb_expenses_view_detail(session, args) -> dict:
+    from xero_user_cli.actions.expenses import view_expense_detail
 
-    return create_mileage(session, _expense_form_from_args(args))
+    return view_expense_detail(session, url=args.url, claim_type="expense")
 
 
 def _verb_expenses_edit_detail(session, args) -> dict:
     from xero_user_cli.actions.expenses import edit_expense_detail, parse_line_items
 
-    return edit_expense_detail(session, url=args.url, amount=args.amount, category=args.category, tax_rate=args.tax_rate, items=parse_line_items(args.item or []))
+    return edit_expense_detail(
+        session,
+        url=args.url,
+        date=args.date,
+        description=args.description,
+        category=args.category,
+        assign_to=args.assign_to,
+        label=args.label,
+        payment_due_date=args.payment_due_date,
+        amount=args.amount,
+        merchant=args.merchant,
+        currency=args.currency,
+        tax_rate=args.tax_rate,
+        items=parse_line_items(args.item or []),
+        force_create_spent_at=args.force_create_spent_at,
+        save=args.save,
+    )
+
+
+def _verb_expenses_delete_detail(session, args) -> dict:
+    from xero_user_cli.actions.expenses import delete_expense_detail
+
+    return delete_expense_detail(session, url=args.url, claim_type="expense", confirm=args.confirm)
+
+
+def _verb_expenses_mileage_create(session, args) -> dict:
+    from xero_user_cli.actions.expenses import create_mileage
+
+    return create_mileage(session, _expense_form_from_args(args))
+
+
+def _verb_expenses_mileage_view_detail(session, args) -> dict:
+    from xero_user_cli.actions.expenses import view_expense_detail
+
+    return view_expense_detail(session, url=args.url, claim_type="mileage")
+
+
+def _verb_expenses_mileage_edit_detail(session, args) -> dict:
+    from xero_user_cli.actions.expenses import edit_mileage_detail
+
+    return edit_mileage_detail(
+        session,
+        url=args.url,
+        date=args.date,
+        description=args.description,
+        category=args.category,
+        assign_to=args.assign_to,
+        label=args.label,
+        payment_due_date=args.payment_due_date,
+        distance=args.distance,
+        rate=args.rate,
+        save=args.save,
+    )
+
+
+def _verb_expenses_mileage_delete_detail(session, args) -> dict:
+    from xero_user_cli.actions.expenses import delete_expense_detail
+
+    return delete_expense_detail(session, url=args.url, claim_type="mileage", confirm=args.confirm)
+
+
 
 
 def _verb_timesheets_open(session, args) -> dict:
@@ -204,6 +278,38 @@ def _verb_timesheets_delete(session, args) -> dict:
     return delete_timesheet(session, employee=args.employee, period=args.period, status=args.status, confirm=args.confirm)
 
 
+def _verb_area_open(session, args) -> dict:
+    from xero_user_cli.actions.areas import open_area
+
+    return open_area(session, area_key=args.area_key)
+
+
+def _verb_area_list(session, args) -> dict:
+    from xero_user_cli.actions.areas import list_area
+
+    return list_area(session, area_key=args.area_key, limit=args.limit)
+
+
+def _verb_sales_invoices_create(session, args) -> dict:
+    from xero_user_cli.actions.sales import InvoiceForm, create_invoice
+
+    return create_invoice(
+        session,
+        InvoiceForm(
+            contact=args.contact,
+            date=args.date,
+            due_date=args.due_date,
+            invoice_number=args.invoice_number,
+            reference=args.reference,
+            line_description=args.line_description,
+            quantity=args.quantity,
+            unit_price=args.unit_price,
+            account=args.account,
+            tax_rate=args.tax_rate,
+        ),
+    )
+
+
 def _verb_debug_page(session, args) -> dict:
     from xero_user_cli.actions.debug import page_summary
 
@@ -222,8 +328,13 @@ _VERBS = {
     "auth-mfa": _verb_auth_mfa,
     "expenses-list": _verb_expenses_list,
     "expenses-create": _verb_expenses_create,
-    "expenses-mileage": _verb_expenses_mileage,
+    "expenses-view-detail": _verb_expenses_view_detail,
     "expenses-edit-detail": _verb_expenses_edit_detail,
+    "expenses-delete-detail": _verb_expenses_delete_detail,
+    "expenses-mileage-create": _verb_expenses_mileage_create,
+    "expenses-mileage-view-detail": _verb_expenses_mileage_view_detail,
+    "expenses-mileage-edit-detail": _verb_expenses_mileage_edit_detail,
+    "expenses-mileage-delete-detail": _verb_expenses_mileage_delete_detail,
     "timesheets-open": _verb_timesheets_open,
     "timesheets-list": _verb_timesheets_list,
     "timesheets-periods": _verb_timesheets_periods,
@@ -233,6 +344,9 @@ _VERBS = {
     "timesheets-revert-to-draft": _verb_timesheets_revert_to_draft,
     "timesheets-approve": _verb_timesheets_approve,
     "timesheets-delete": _verb_timesheets_delete,
+    "area-open": _verb_area_open,
+    "area-list": _verb_area_list,
+    "sales-invoices-create": _verb_sales_invoices_create,
     "debug-page": _verb_debug_page,
     "screenshot": _verb_screenshot,
 }
@@ -331,6 +445,7 @@ def _add_expense_form_args(parser: argparse.ArgumentParser) -> None:
     _add_shared_expense_args(parser)
     parser.add_argument("--amount", help="Purchase amount")
     parser.add_argument("--spent-at", "--merchant", dest="merchant", help="Spent at / merchant name")
+    parser.add_argument("--force-create-spent-at", action="store_true", help="Create the spent-at contact when the entered name also matches multiple existing contacts")
     parser.add_argument("--currency", help="Currency code, e.g. AUD")
     parser.add_argument("--tax-rate", dest="tax_rate", help="Tax/GST rate to select")
 
@@ -339,6 +454,58 @@ def _add_mileage_form_args(parser: argparse.ArgumentParser) -> None:
     _add_shared_expense_args(parser)
     parser.add_argument("--distance", help="Mileage to claim (km)")
     parser.add_argument("--rate", help="Reimbursement rate per km")
+
+
+def _add_expense_edit_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--date", help="Replacement date spent (YYYY-MM-DD)")
+    parser.add_argument("--description", help="Replacement description / purpose")
+    parser.add_argument("--category", help="Replacement expense category/account text to select")
+    parser.add_argument("--assign-to", dest="assign_to", help="Replacement customer to bill the claim back to")
+    parser.add_argument("--label", help="Replacement label")
+    parser.add_argument("--payment-due-date", dest="payment_due_date", help="Replacement payment due date (YYYY-MM-DD)")
+    parser.add_argument("--amount", help="Replacement purchase amount")
+    parser.add_argument("--spent-at", "--merchant", dest="merchant", help="Replacement spent at / merchant name")
+    parser.add_argument("--force-create-spent-at", action="store_true", help="Create the spent-at contact when the entered name also matches multiple existing contacts")
+    parser.add_argument("--currency", help="Replacement currency code, e.g. AUD")
+    parser.add_argument("--tax-rate", dest="tax_rate", help="Replacement tax/GST rate text to select")
+
+
+def _add_mileage_edit_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--date", help="Replacement date travelled (YYYY-MM-DD)")
+    parser.add_argument("--description", help="Replacement description / purpose")
+    parser.add_argument("--category", help="Replacement expense category/account text to select")
+    parser.add_argument("--assign-to", dest="assign_to", help="Replacement customer to bill the claim back to")
+    parser.add_argument("--label", help="Replacement label")
+    parser.add_argument("--payment-due-date", dest="payment_due_date", help="Replacement payment due date (YYYY-MM-DD)")
+    parser.add_argument("--distance", help="Replacement mileage to claim (km)")
+    parser.add_argument("--rate", help="Replacement reimbursement rate per km")
+
+
+def _add_area_group(sub, common, name: str, *, help_text: str, areas: list[tuple[str, str]]) -> None:
+    group_cmd = sub.add_parser(name, help=help_text)
+    group_sub = group_cmd.add_subparsers(dest="area", required=True)
+    for area_name, area_help in areas:
+        area_cmd = group_sub.add_parser(area_name, help=area_help)
+        area_sub = area_cmd.add_subparsers(dest="area_action", required=True)
+        area_sub.add_parser("open", parents=[common], help=f"Open {area_help}")
+        p_list = area_sub.add_parser("list", parents=[common], help=f"List visible {area_help}")
+        p_list.add_argument("--limit", type=int, default=25, help="Maximum rows/items to return (default: 25)")
+        if name == "sales" and area_name == "invoices":
+            p_create = area_sub.add_parser("create", parents=[common], help="Open and fill a new invoice without submitting")
+            _add_invoice_form_args(p_create)
+
+
+def _add_invoice_form_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--contact", help="Customer/contact to select")
+    parser.add_argument("--date", help="Invoice date")
+    parser.add_argument("--due-date", dest="due_date", help="Invoice due date")
+    parser.add_argument("--invoice-number", dest="invoice_number", help="Invoice number")
+    parser.add_argument("--reference", help="Invoice reference")
+    parser.add_argument("--line-description", dest="line_description", help="First line item description")
+    parser.add_argument("--quantity", help="First line item quantity")
+    parser.add_argument("--unit-price", dest="unit_price", help="First line item unit price")
+    parser.add_argument("--account", help="First line item account")
+    parser.add_argument("--tax-rate", dest="tax_rate", help="First line item tax rate")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -390,7 +557,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_auth_mfa.add_argument("--no-trust-device", action="store_true", help="Do not select Trust/Remember this device if Xero offers it")
     p_auth_mfa.add_argument("--timeout", type=int, default=120, help="Seconds to wait for Xero to finish after MFA submission")
 
-    expenses_cmd = sub.add_parser("expenses", help="List and create Xero expenses")
+    expenses_cmd = sub.add_parser("expenses", help="Manage Xero expenses and mileage claims")
     expenses_sub = expenses_cmd.add_subparsers(dest="expenses_cmd", required=True)
 
     p_list = expenses_sub.add_parser("list", parents=[common], help="List visible expenses")
@@ -399,19 +566,36 @@ def build_parser() -> argparse.ArgumentParser:
     p_create = expenses_sub.add_parser("create", parents=[common], help="Open and optionally submit a new expense")
     _add_expense_form_args(p_create)
 
-    p_mileage = expenses_sub.add_parser("mileage", parents=[common], help="Open and optionally submit a new mileage claim")
-    _add_mileage_form_args(p_mileage)
+    p_view_detail = expenses_sub.add_parser("view-detail", parents=[common], help="Open and read an expense detail by URL")
+    p_view_detail.add_argument("--url", required=True, help="Expense detail URL or path")
 
     p_edit_detail = expenses_sub.add_parser("edit-detail", parents=[common], help="Edit an existing expense detail by URL")
     p_edit_detail.add_argument("--url", required=True, help="Expense detail URL or path")
-    p_edit_detail.add_argument("--amount", help="Replacement purchase amount")
-    p_edit_detail.add_argument("--category", help="Replacement expense category/account text to select")
-    p_edit_detail.add_argument("--tax-rate", help="Replacement tax/GST rate text to select")
+    _add_expense_edit_args(p_edit_detail)
+    p_edit_detail.add_argument("--save", action="store_true", help="Click Save after applying edits")
     p_edit_detail.add_argument(
         "--item",
         action="append",
         help="Itemised line as 'description|account|tax-rate|amount'. Repeat for multiple lines.",
     )
+
+    p_delete_detail = expenses_sub.add_parser("delete-detail", parents=[common], help="Delete an expense detail by URL")
+    p_delete_detail.add_argument("--url", required=True, help="Expense detail URL or path")
+    p_delete_detail.add_argument("--confirm", action="store_true", help="Actually delete the expense")
+
+    mileage_cmd = expenses_sub.add_parser("mileage", help="Manage Xero mileage claims")
+    mileage_sub = mileage_cmd.add_subparsers(dest="mileage_cmd", required=True)
+    p_mileage_create = mileage_sub.add_parser("create", parents=[common], help="Open and optionally submit a new mileage claim")
+    _add_mileage_form_args(p_mileage_create)
+    p_mileage_view_detail = mileage_sub.add_parser("view-detail", parents=[common], help="Open and read a mileage detail by URL")
+    p_mileage_view_detail.add_argument("--url", required=True, help="Mileage detail URL or path")
+    p_mileage_edit_detail = mileage_sub.add_parser("edit-detail", parents=[common], help="Edit an existing mileage detail by URL")
+    p_mileage_edit_detail.add_argument("--url", required=True, help="Mileage detail URL or path")
+    _add_mileage_edit_args(p_mileage_edit_detail)
+    p_mileage_edit_detail.add_argument("--save", action="store_true", help="Click Save after applying edits")
+    p_mileage_delete_detail = mileage_sub.add_parser("delete-detail", parents=[common], help="Delete a mileage detail by URL")
+    p_mileage_delete_detail.add_argument("--url", required=True, help="Mileage detail URL or path")
+    p_mileage_delete_detail.add_argument("--confirm", action="store_true", help="Actually delete the mileage claim")
 
     timesheets_cmd = sub.add_parser("timesheets", help="Open and inspect Xero Payroll timesheets")
     timesheets_sub = timesheets_cmd.add_subparsers(dest="timesheets_cmd", required=True)
@@ -450,6 +634,43 @@ def build_parser() -> argparse.ArgumentParser:
     p_timesheets_delete.add_argument("--status", help="Status equals this text")
     p_timesheets_delete.add_argument("--confirm", action="store_true", help="Actually delete the matched timesheet")
 
+    _add_area_group(
+        sub,
+        common,
+        "sales",
+        help_text="Open and inspect Xero sales areas",
+        areas=[
+            ("invoices", "invoices"),
+            ("payment-links", "payment links"),
+            ("payment-services", "payment services"),
+            ("quotes", "quotes"),
+            ("products", "products and services"),
+            ("customers", "customers"),
+        ],
+    )
+    _add_area_group(
+        sub,
+        common,
+        "purchases",
+        help_text="Open and inspect Xero purchases areas",
+        areas=[
+            ("bills", "bills"),
+            ("payments", "payments"),
+            ("purchase-orders", "purchase orders"),
+            ("suppliers", "suppliers"),
+        ],
+    )
+    _add_area_group(
+        sub,
+        common,
+        "payroll",
+        help_text="Open and inspect additional Xero payroll areas",
+        areas=[
+            ("employees", "employees"),
+            ("leave", "leave"),
+        ],
+    )
+
     debug_cmd = sub.add_parser("debug", help="Inspect the current Xero page without printing secrets")
     debug_sub = debug_cmd.add_subparsers(dest="debug_cmd", required=True)
     p_debug_page = debug_sub.add_parser("page", parents=[common], help="Emit visible page controls and text as JSON")
@@ -469,9 +690,13 @@ def _parse_args(argv=None):
     if args.cmd == "auth":
         args.verb = f"auth-{args.auth_cmd}"
     elif args.cmd == "expenses":
-        args.verb = f"expenses-{args.expenses_cmd}"
+        args.verb = f"expenses-mileage-{args.mileage_cmd}" if args.expenses_cmd == "mileage" else f"expenses-{args.expenses_cmd}"
     elif args.cmd == "timesheets":
         args.verb = f"timesheets-{args.timesheets_cmd}"
+    elif args.cmd in {"sales", "purchases", "payroll"}:
+        args.area_key = f"{args.cmd}-{args.area}"
+        specific_verb = f"{args.area_key}-{args.area_action}"
+        args.verb = specific_verb if specific_verb in _VERBS else f"area-{args.area_action}"
     elif args.cmd == "debug":
         args.verb = f"debug-{args.debug_cmd}"
     else:

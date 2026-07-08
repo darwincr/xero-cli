@@ -2,14 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-
-XERO_ORG = "!M0777"
-XERO_APP_BASE_URL = f"https://go.xero.com/app/{XERO_ORG}"
-XERO_HOME_URL = f"{XERO_APP_BASE_URL}/homepage"
-XERO_EXPENSES_URL = f"{XERO_APP_BASE_URL}/expenses"
-XERO_CREATE_EXPENSE_URL = f"{XERO_APP_BASE_URL}/expenses/detail/create-new"
-XERO_CREATE_MILEAGE_URL = f"{XERO_APP_BASE_URL}/expenses/detail/create-new-mileage"
-XERO_TIMESHEETS_URL = f"https://payroll.xero.com/Timesheets?CID={XERO_ORG}"
+from urllib.parse import urlparse
 
 BROWSER_DEFAULT_TIMEOUT_MS = 30_000
 BROWSER_WIDTH = 1920
@@ -117,6 +110,53 @@ def _parse_dotenv_line(line: str) -> tuple[str, str] | None:
     elif " #" in value:
         value = value.split(" #", 1)[0].rstrip()
     return key, value
+
+
+def _xero_app_base_url() -> str:
+    value = (os.environ.get("XERO_APP_BASE_URL") or "").strip()
+    if not value:
+        org = (os.environ.get("XERO_ORG") or "!M0777").strip()
+        return f"https://go.xero.com/app/{org}"
+
+    value = value.rstrip("/")
+    homepage_suffix = "/homepage"
+    if value.endswith(homepage_suffix):
+        value = value[: -len(homepage_suffix)]
+    return value
+
+
+def _xero_org_from_base_url(base_url: str) -> str:
+    parsed = urlparse(base_url)
+    if parsed.scheme != "https" or parsed.netloc != "go.xero.com":
+        raise RuntimeError(f"XERO_APP_BASE_URL must look like https://go.xero.com/app/!ORG, got: {base_url}")
+    parts = [part for part in parsed.path.split("/") if part]
+    if len(parts) >= 2 and parts[0] == "app":
+        return parts[1]
+    raise RuntimeError(f"XERO_APP_BASE_URL must look like https://go.xero.com/app/!ORG, got: {base_url}")
+
+
+load_dotenv_file()
+
+XERO_APP_BASE_URL = _xero_app_base_url()
+XERO_ORG = _xero_org_from_base_url(XERO_APP_BASE_URL)
+XERO_HOME_URL = f"{XERO_APP_BASE_URL}/homepage"
+XERO_EXPENSES_URL = f"{XERO_APP_BASE_URL}/expenses"
+XERO_CREATE_EXPENSE_URL = f"{XERO_APP_BASE_URL}/expenses/detail/create-new"
+XERO_CREATE_MILEAGE_URL = f"{XERO_APP_BASE_URL}/expenses/detail/create-new-mileage"
+XERO_INVOICES_URL = "https://go.xero.com/AccountsReceivable/Search.aspx"
+XERO_CREATE_INVOICE_URL = f"{XERO_APP_BASE_URL}/invoicing"
+XERO_PAYMENT_LINKS_URL = f"{XERO_APP_BASE_URL}/payment-links"
+XERO_PAYMENT_SERVICES_URL = f"{XERO_APP_BASE_URL}/payment-services"
+XERO_QUOTES_URL = f"{XERO_APP_BASE_URL}/quotes-list?"
+XERO_PRODUCTS_AND_SERVICES_URL = f"{XERO_APP_BASE_URL}/products-and-services"
+XERO_CUSTOMERS_URL = f"{XERO_APP_BASE_URL}/contacts/customers"
+XERO_BILLS_URL = f"{XERO_APP_BASE_URL}/bills/list/all"
+XERO_PAYMENTS_URL = f"{XERO_APP_BASE_URL}/payments"
+XERO_PURCHASE_ORDERS_URL = f"{XERO_APP_BASE_URL}/purchase-orders"
+XERO_SUPPLIERS_URL = f"{XERO_APP_BASE_URL}/contacts/suppliers"
+XERO_EMPLOYEES_URL = f"{XERO_APP_BASE_URL}/payroll/employees"
+XERO_LEAVE_URL = f"https://payroll.xero.com/Leave?CID={XERO_ORG}"
+XERO_TIMESHEETS_URL = f"https://payroll.xero.com/Timesheets?CID={XERO_ORG}"
 
 
 def xero_credentials() -> tuple[str, str]:

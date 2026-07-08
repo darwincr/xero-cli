@@ -67,6 +67,7 @@ def _inputs(page, *, limit: int) -> list[dict]:
             "placeholder": _attr(locator, "placeholder"),
             "aria_label": _attr(locator, "aria-label"),
             "role": _attr(locator, "role"),
+            "data_automationid": _attr(locator, "data-automationid"),
             "text": visible_text(locator),
         }
         if not _looks_sensitive(entry):
